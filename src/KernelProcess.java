@@ -3,6 +3,7 @@ public class KernelProcess extends Process {
         super(pid,ppid,ProcessType.kernel);
     }
     public void execute() {
+        System.out.printf("Process id: %d%n", this.getPid());
         System.out.println("Kernel process handling system operations");
     }
 }
