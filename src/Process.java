@@ -1,57 +1,49 @@
-import java.util.HashMap;
-
 public abstract class Process {
     private final int pid;
     private final int ppid;
-    private HashMap<Integer,Integer> registers;
     private final ProcessType type;
+    private final int[] registers = new int[32];
+    private ProcessState state = ProcessState.NEW;
 
-    public Process(int pid, int ppid, String type) {
+    public Process(int pid, int ppid, ProcessType type ) {
         this.pid = pid;
         this.ppid = ppid;
-        this.type = ProcessType.valueOf(type);
-        registers = new HashMap<>();
-        for (int i=0; i<32; i++){
-            registers.put(i, 0);
-        }
+        this.type = type;
     }
 
-    public Process fork(ProcessType childType) {
-        return ProcessManager.getInstance().createChild(this, childType);
+    // state save/restore
+    public void saveState(int[] out) {
+        if (out.length != 32) throw new IllegalArgumentException("32 regs");
+        System.arraycopy(registers, 0, out, 0, 32);
     }
 
-    public void saveState(HashMap<Integer,Integer> map) {
-        registers.clear();
-        registers.putAll(map);
+    public void loadState(int[] in) {
+        if (in.length != 32) throw new IllegalArgumentException("32 regs");
+        System.arraycopy(in, 0, registers, 0, 32);
     }
 
-    public void loadState(HashMap<Integer,Integer> state){
-        state.putAll(registers);
-    }
 
     public abstract void execute();
 
-    // accessor/modifiers
-
-    public int getPid() {
-        return pid;
-    }
-
-    public int getPpid() {
-        return ppid;
-    }
-
-    public HashMap<Integer, Integer> getRegisters() {
-        return registers;
-    }
-
-    // printing stuff
-
-    public void printRegisters() {
-        for (Integer key : registers.keySet()) {
-            System.out.println(key + " : " + registers.get(key));
+    // scheduling hook
+    public void executeOneQuantum(int quantum) {
+        // default implementation: run part of execute()
+        for (int i = 0; i < quantum; i++) {
+            execute();
+            // update remaining burst, registers, etc.
         }
-    }
+    };
+
+    // accessors
+    public int getPid() { return pid; }
+    public int getPpid() { return ppid; }
+    public ProcessType getType() { return type; }
+    public ProcessState getState() { return state; }
+    public void setState(ProcessState s) { this.state = s; }
+
+    // optional controlled register access
+    public int readReg(int idx) { return registers[idx]; }
+    public void writeReg(int idx, int value) { registers[idx] = value; }
 
     public void print(){
         System.out.println("Process " + pid + " Type: " + type);

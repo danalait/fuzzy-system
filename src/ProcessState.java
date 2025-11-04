@@ -1,3 +1,3 @@
 public enum ProcessState{
-    nuw, waiting, ready, done, zombie, terminated;
+    NEW, READY, RUNNING, BLOCKED, ZOMBIE;
 }

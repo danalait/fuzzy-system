@@ -1,65 +1,57 @@
-import java.util.HashMap;
+import java.util.*;
 
-/* this is kind of the PID and some functions bundled
-    will use singleton pattern, no conflict over pid (always unique)
-    class ProcessManager {
-        -Map<Integer,Process> processes  // done
-        -int nextPid                     // done
-        +getInstance()                   // done
-        +getNextAvailablePid()           // done
-        +createProcess()                 // done
-        +getProcess()                   // done
-        +removeProcess()
-    }
-*/
-public class ProcessManager {
-    private static ProcessManager instance;
-    private final HashMap<Integer,Process> processes = new  HashMap<>();
-    private int nextPid = 2; // reserving 0 for entry process
+public final class ProcessManager {
+    private static final ProcessManager INSTANCE = new ProcessManager();
+
+    private final Map<Integer, Process> processes = new HashMap<>();
+    private int nextPid = 2;         // 1 reserved for root
     private boolean rootCreated = false;
 
     private ProcessManager(){}
 
-    // TODO: Exception for Root already existing
-    public Process createRoot(){
-        if (!rootCreated){
-            throw new IllegalStateException("Root already exists");
-        }
-        Process rootProcess = createProcess(1, 0, ProcessType.kernel);
-        this.processes.put(1, rootProcess);
+    public static ProcessManager getInstance() { return INSTANCE; }
+
+    // ----- creation -----
+    public Process createRoot() {
+        if (rootCreated) throw new IllegalStateException("Root already exists");
+        Process root = new KernelProcess(1, 0);
+        processes.put(1, root);
         rootCreated = true;
-        return rootProcess;
-    };
-
-    public Process createChild(Process parentProcess, ProcessType type) {
-        int ppid = parentProcess.getPid();
-        int pid = getNextAvailablePid();
-        Process childProcess = createProcess(pid, ppid, type);
-        this.processes.put(pid, childProcess);
-        return childProcess;
-    };
-
-    private Process createProcess(int pid, int ppid, ProcessType type) {
-        if (type == ProcessType.user){
-            return new UserProcess(pid, ppid);
-        }
-        if (type == ProcessType.kernel){
-            return new KernelProcess(pid, ppid);
-        }
-        throw new ProcessTypeException("Process Type doesn't exist");
+        return root;
     }
 
-    public static ProcessManager getInstance(){
-        return instance;
+    public Process createChild(Process parent, ProcessType type) {
+        if (parent == null) throw new IllegalArgumentException("parent is null");
+        return createChild(parent.getPid(), type);
     }
 
-    public Process getProcess(int pid){
-        return this.processes.get(pid);
+    public Process createChild(int ppid, ProcessType type) {
+        int pid = nextPid++;
+        Process p = switch (type) {
+            case user -> new UserProcess(pid, ppid);
+            case kernel -> new KernelProcess(pid, ppid);
+        };
+        processes.put(pid, p);
+        return p;
     }
 
-    public int getNextAvailablePid(){
-        return this.nextPid++;
+    // ----- lookup / maintenance -----
+    public Process get(int pid) { return processes.get(pid); }
+
+    public List<Process> getChildren(int ppid) {
+        List<Process> out = new ArrayList<>();
+        for (Process p : processes.values()) if (p.getPpid() == ppid) out.add(p);
+        return out;
     }
 
+    public boolean remove(int pid) { return processes.remove(pid) != null; }
 
+    public Collection<Process> all() { return Collections.unmodifiableCollection(processes.values()); }
+
+    // test helper
+    void resetForTests() {
+        processes.clear();
+        nextPid = 2;
+        rootCreated = false;
+    }
 }
